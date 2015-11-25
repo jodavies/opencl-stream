@@ -327,18 +327,20 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 	//get platform and device information
 	cl_uint numPlatforms;
 	err = clGetPlatformIDs(0, NULL, &numPlatforms);
-	*platform = malloc(numPlatforms * sizeof(cl_platform_id));
-	*device_id = malloc(numPlatforms * sizeof(cl_device_id*));
+	*platform = calloc(numPlatforms, sizeof(cl_platform_id));
+	*device_id = calloc(numPlatforms, sizeof(cl_device_id*));
 	err |= clGetPlatformIDs(numPlatforms, *platform, NULL);
 	CheckOpenCLError(err, __LINE__);
 	cl_uint *numDevices;
-	numDevices = malloc(numPlatforms * sizeof(cl_uint));
+	numDevices = calloc(numPlatforms, sizeof(cl_uint));
 
 	for (int i = 0; i < numPlatforms; i++) {
 		clGetPlatformInfo((*platform)[i], CL_PLATFORM_VENDOR, sizeof(infostring), infostring, NULL);
 		printf("\n---OpenCL: Platform Vendor %d: %s\n", i, infostring);
 
 		err = clGetDeviceIDs((*platform)[i], CL_DEVICE_TYPE_ALL, 0, NULL, &(numDevices[i]));
+		if (err == CL_DEVICE_NOT_FOUND)
+			continue;
 		CheckOpenCLError(err, __LINE__);
 		(*device_id)[i] = malloc(numDevices[i] * sizeof(cl_device_id));
 		err = clGetDeviceIDs((*platform)[i], CL_DEVICE_TYPE_ALL, numDevices[i], (*device_id)[i], NULL);
