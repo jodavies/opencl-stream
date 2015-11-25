@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <time.h>        // clock_gettime()
 #include <float.h>       // DBL_MIN
+
+/* clCreateCommandQueue with 2.0 headers gives a warning about it being deprecated, avoid it */
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+
 #include <CL/opencl.h>
 
 
