@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <time.h>        // clock_gettime()
 #include <float.h>       // DBL_MIN
+
+/* clCreateCommandQueue with 2.0 headers gives a warning about it being deprecated, avoid it */
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+
 #include <CL/opencl.h>
 
 
@@ -323,18 +327,20 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 	//get platform and device information
 	cl_uint numPlatforms;
 	err = clGetPlatformIDs(0, NULL, &numPlatforms);
-	*platform = malloc(numPlatforms * sizeof(cl_platform_id));
-	*device_id = malloc(numPlatforms * sizeof(cl_device_id*));
+	*platform = calloc(numPlatforms, sizeof(cl_platform_id));
+	*device_id = calloc(numPlatforms, sizeof(cl_device_id*));
 	err |= clGetPlatformIDs(numPlatforms, *platform, NULL);
 	CheckOpenCLError(err, __LINE__);
 	cl_uint *numDevices;
-	numDevices = malloc(numPlatforms * sizeof(cl_uint));
+	numDevices = calloc(numPlatforms, sizeof(cl_uint));
 
 	for (int i = 0; i < numPlatforms; i++) {
 		clGetPlatformInfo((*platform)[i], CL_PLATFORM_VENDOR, sizeof(infostring), infostring, NULL);
 		printf("\n---OpenCL: Platform Vendor %d: %s\n", i, infostring);
 
 		err = clGetDeviceIDs((*platform)[i], CL_DEVICE_TYPE_ALL, 0, NULL, &(numDevices[i]));
+		if (err == CL_DEVICE_NOT_FOUND)
+			continue;
 		CheckOpenCLError(err, __LINE__);
 		(*device_id)[i] = malloc(numDevices[i] * sizeof(cl_device_id));
 		err = clGetDeviceIDs((*platform)[i], CL_DEVICE_TYPE_ALL, numDevices[i], (*device_id)[i], NULL);
@@ -354,15 +360,25 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 
 	// Get platform and device from user:
 	int chosenPlatform = -1, chosenDevice = -1;
-	while (chosenPlatform < 0) {
+	if (numPlatforms == 1) {
+		chosenPlatform = 0;
+		printf("Auto-selecting platform %u.\n", chosenPlatform);
+	} else while (chosenPlatform < 0) {
 		printf("\nChoose a platform: ");
 		scanf("%d", &chosenPlatform);
 		if (chosenPlatform > (numPlatforms-1) || chosenPlatform < 0) {
 			chosenPlatform = -1;
 			printf("Invalid platform.\n");
 		}
+		if (numDevices[chosenPlatform] < 1) {
+			chosenPlatform = -1;
+			printf("Platform has no devices.\n");
+		}
 	}
-	while (chosenDevice < 0) {
+	if (numDevices[chosenPlatform] == 1) {
+		chosenDevice = 0;
+		printf("Auto-selecting device %u.\n", chosenDevice);
+	} else while (chosenDevice < 0) {
 		printf("Choose a device: ");
 		scanf("%d", &chosenDevice);
 		if (chosenDevice > (numDevices[chosenPlatform]-1) || chosenDevice < 0) {
