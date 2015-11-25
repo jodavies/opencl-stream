@@ -360,15 +360,25 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 
 	// Get platform and device from user:
 	int chosenPlatform = -1, chosenDevice = -1;
-	while (chosenPlatform < 0) {
+	if (numPlatforms == 1) {
+		chosenPlatform = 0;
+		printf("Auto-selecting platform %u.\n", chosenPlatform);
+	} else while (chosenPlatform < 0) {
 		printf("\nChoose a platform: ");
 		scanf("%d", &chosenPlatform);
 		if (chosenPlatform > (numPlatforms-1) || chosenPlatform < 0) {
 			chosenPlatform = -1;
 			printf("Invalid platform.\n");
 		}
+		if (numDevices[chosenPlatform] < 1) {
+			chosenPlatform = -1;
+			printf("Platform has no devices.\n");
+		}
 	}
-	while (chosenDevice < 0) {
+	if (numDevices[chosenPlatform] == 1) {
+		chosenDevice = 0;
+		printf("Auto-selecting device %u.\n", chosenDevice);
+	} else while (chosenDevice < 0) {
 		printf("Choose a device: ");
 		scanf("%d", &chosenDevice);
 		if (chosenDevice > (numDevices[chosenPlatform]-1) || chosenDevice < 0) {
