@@ -1,0 +1,5 @@
+#ignore binary folder
+bin/
+
+#ignore opencl files
+*.ptx
