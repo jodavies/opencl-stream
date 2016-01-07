@@ -15,8 +15,8 @@
 
 
 // Array size for tests. Needs to be big to sufficiently load device.
-// Must be divisible by 16 (the largest vector type)
-#define ARRAYSIZE (0.5 * 1024*1024*1024/8)
+// Must be divisible by 16 (the largest vector type) and 256 (the largest local workgroup size tested)
+#define TRYARRAYSIZE (0.5 * 1024*1024*1024/8)
 
 // Number of times to run tests
 #define NTIMES 50
@@ -26,10 +26,10 @@
 
 // Function prototypes
 double GetWallTime(void);
-void RunTest(cl_command_queue * queue, cl_kernel * kernel, size_t vecWidth, char * testName, int memops, int flops);
-void VerifyResults(cl_command_queue * queue, cl_mem * device_A, double scalar);
+void RunTest(cl_command_queue * queue, cl_kernel * kernel, size_t vecWidth, char * testName, int memops, int flops, size_t arraySize);
+void VerifyResults(cl_command_queue * queue, cl_mem * device_A, double scalar, size_t arraySize);
 // OpenCL Stuff
-int InitialiseCLEnvironment(cl_platform_id**, cl_device_id***, cl_context*, cl_command_queue*, cl_program*);
+int InitialiseCLEnvironment(cl_platform_id**, cl_device_id***, cl_context*, cl_command_queue*, cl_program*, cl_ulong*, cl_ulong*);
 void CleanUpCLEnvironment(cl_platform_id**, cl_device_id***, cl_context*, cl_command_queue*, cl_program*);
 void CheckOpenCLError(cl_int err, int line);
 
@@ -47,6 +47,7 @@ int main(void)
 	cl_device_id      **device_id;
 	cl_context        context;
 	cl_command_queue  queue;
+	cl_ulong          maxAlloc, globalMemSize;
 	cl_program        program;
 	cl_kernel         initialiseArraysKernel;
 	cl_kernel         copyKernel1,copyKernel2,copyKernel4,copyKernel8,copyKernel16;
@@ -56,7 +57,7 @@ int main(void)
 	cl_int            err;
 	cl_mem            device_A, device_B, device_C;
 
-	if (InitialiseCLEnvironment(&platform, &device_id, &context, &queue, &program) == EXIT_FAILURE) {
+	if (InitialiseCLEnvironment(&platform, &device_id, &context, &queue, &program, &maxAlloc, &globalMemSize) == EXIT_FAILURE) {
 		printf("Error initialising OpenCL environment\n");
 		return EXIT_FAILURE;
 	}
@@ -91,7 +92,20 @@ int main(void)
 	CheckOpenCLError(err, __LINE__);
 
 	// Allocate device memory
-	size_t sizeBytes = ARRAYSIZE * sizeof(double);
+	size_t sizeBytes = TRYARRAYSIZE * sizeof(double);
+	if (sizeBytes > maxAlloc) sizeBytes = maxAlloc;
+	while (3*sizeBytes > globalMemSize) {
+		printf("Adjusting array size from %zuMB to %zuMB\n", sizeBytes, sizeBytes/2);
+		sizeBytes /= 2;
+	}
+	// Ensure new array size is a multiple of 256, the largest local workgroup size tested
+	size_t arraySize = sizeBytes/sizeof(double);
+	if ( arraySize % 256 != 0) {
+		// round down to multiple of 256
+		printf("Adjusting array size from %zuMB to %zuMB\n", arraySize*sizeof(double), ((arraySize/256)*256)*sizeof(double));
+		arraySize = (arraySize/256)*256;
+		sizeBytes = arraySize*sizeof(double);
+	}
 	device_A = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeBytes, NULL, &err);
 	device_B = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeBytes, NULL, &err);
 	device_C = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeBytes, NULL, &err);
@@ -172,7 +186,7 @@ int main(void)
 
 	// Initialize arrays
 	size_t initLocalSize = 32;
-	size_t initGlobalSize = ARRAYSIZE;
+	size_t initGlobalSize = arraySize;
 	err = clEnqueueNDRangeKernel(queue, initialiseArraysKernel, 1, NULL, &initGlobalSize, &initLocalSize, 0, NULL, NULL);
 	clFinish(queue);
 
@@ -182,33 +196,33 @@ int main(void)
 	printf("---------------------------------------------------------------------------------------------------\n");
 	printf("Function        Best Rate GB/s   Avg time   Min time   Max time   Best Workgroup Size   Best GFLOPS\n");
 	printf("---------------------------------------------------------------------------------------------------\n");
-	RunTest(&queue, &copyKernel1,  1,  "copyKernel1",  2, 0);
-	RunTest(&queue, &copyKernel2,  2,  "copyKernel2",  2, 0);
-	RunTest(&queue, &copyKernel4,  4,  "copyKernel4",  2, 0);
-	RunTest(&queue, &copyKernel8,  8,  "copyKernel8",  2, 0);
-	RunTest(&queue, &copyKernel16, 16, "copyKernel16", 2, 0);
+	RunTest(&queue, &copyKernel1,  1,  "copyKernel1",  2, 0, arraySize);
+	RunTest(&queue, &copyKernel2,  2,  "copyKernel2",  2, 0, arraySize);
+	RunTest(&queue, &copyKernel4,  4,  "copyKernel4",  2, 0, arraySize);
+	RunTest(&queue, &copyKernel8,  8,  "copyKernel8",  2, 0, arraySize);
+	RunTest(&queue, &copyKernel16, 16, "copyKernel16", 2, 0, arraySize);
 	printf("---------------------------------------------------------------------------------------------------\n");
-	RunTest(&queue, &scaleKernel1,  1,  "scaleKernel1",  2, 1);
-	RunTest(&queue, &scaleKernel2,  2,  "scaleKernel2",  2, 1);
-	RunTest(&queue, &scaleKernel4,  4,  "scaleKernel4",  2, 1);
-	RunTest(&queue, &scaleKernel8,  8,  "scaleKernel8",  2, 1);
-	RunTest(&queue, &scaleKernel16, 16, "scaleKernel16", 2, 1);
+	RunTest(&queue, &scaleKernel1,  1,  "scaleKernel1",  2, 1, arraySize);
+	RunTest(&queue, &scaleKernel2,  2,  "scaleKernel2",  2, 1, arraySize);
+	RunTest(&queue, &scaleKernel4,  4,  "scaleKernel4",  2, 1, arraySize);
+	RunTest(&queue, &scaleKernel8,  8,  "scaleKernel8",  2, 1, arraySize);
+	RunTest(&queue, &scaleKernel16, 16, "scaleKernel16", 2, 1, arraySize);
 	printf("---------------------------------------------------------------------------------------------------\n");
-	RunTest(&queue, &addKernel1,  1,  "addKernel1",  2, 1);
-	RunTest(&queue, &addKernel2,  2,  "addKernel2",  2, 1);
-	RunTest(&queue, &addKernel4,  4,  "addKernel4",  2, 1);
-	RunTest(&queue, &addKernel8,  8,  "addKernel8",  2, 1);
-	RunTest(&queue, &addKernel16, 16, "addKernel16", 2, 1);
+	RunTest(&queue, &addKernel1,  1,  "addKernel1",  2, 1, arraySize);
+	RunTest(&queue, &addKernel2,  2,  "addKernel2",  2, 1, arraySize);
+	RunTest(&queue, &addKernel4,  4,  "addKernel4",  2, 1, arraySize);
+	RunTest(&queue, &addKernel8,  8,  "addKernel8",  2, 1, arraySize);
+	RunTest(&queue, &addKernel16, 16, "addKernel16", 2, 1, arraySize);
 	printf("---------------------------------------------------------------------------------------------------\n");
-	RunTest(&queue, &triadKernel1,  1,  "triadKernel1",  3, 2);
-	RunTest(&queue, &triadKernel2,  2,  "triadKernel2",  3, 2);
-	RunTest(&queue, &triadKernel4,  4,  "triadKernel4",  3, 2);
-	RunTest(&queue, &triadKernel8,  8,  "triadKernel8",  3, 2);
-	RunTest(&queue, &triadKernel16, 16, "triadKernel16", 3, 2);
+	RunTest(&queue, &triadKernel1,  1,  "triadKernel1",  3, 2, arraySize);
+	RunTest(&queue, &triadKernel2,  2,  "triadKernel2",  3, 2, arraySize);
+	RunTest(&queue, &triadKernel4,  4,  "triadKernel4",  3, 2, arraySize);
+	RunTest(&queue, &triadKernel8,  8,  "triadKernel8",  3, 2, arraySize);
+	RunTest(&queue, &triadKernel16, 16, "triadKernel16", 3, 2, arraySize);
 	printf("---------------------------------------------------------------------------------------------------\n");
 
 	// Check results are correct
-	VerifyResults(&queue, &device_A, scalar);
+	VerifyResults(&queue, &device_A, scalar, arraySize);
 
 	CleanUpCLEnvironment(&platform, &device_id, &context, &queue, &program);
 	return 0;
@@ -216,11 +230,11 @@ int main(void)
 
 
 
-void RunTest(cl_command_queue * queue, cl_kernel * kernel, size_t vecWidth, char * testName, int memops, int flops)
+void RunTest(cl_command_queue * queue, cl_kernel * kernel, size_t vecWidth, char * testName, int memops, int flops, size_t arraySize)
 {
 	size_t localSize;
 	size_t bestLocalSize;
-	size_t globalSize = ARRAYSIZE/vecWidth;
+	size_t globalSize = arraySize/vecWidth;
 	double bestTime = DBL_MAX, worstTime = DBL_MIN, totalTime = 0.0;
 	int err;
 
@@ -252,22 +266,22 @@ void RunTest(cl_command_queue * queue, cl_kernel * kernel, size_t vecWidth, char
 
 #ifdef VERBOSE
 		printf("------------- localSize = %3zu, bandwidth = %7.3lf GB/s\n",
-		        localSize, memops*NTIMES*ARRAYSIZE*sizeof(double)/1024.0/1024.0/1024.0/(time));
+		        localSize, memops*NTIMES*arraySize*sizeof(double)/1024.0/1024.0/1024.0/(time));
 #endif
 
 	}
 
 	printf("%13s   %14.3lf   %8.6lf   %8.6lf   %8.6lf   %19zu   %11.3lf\n",
-	       testName, memops*NTIMES*ARRAYSIZE*sizeof(double)/1024.0/1024.0/1024.0/bestTime, totalTime/NTIMES,
-	       bestTime, worstTime, bestLocalSize, flops*NTIMES*ARRAYSIZE/1.0e9/bestTime);
+	       testName, memops*NTIMES*arraySize*sizeof(double)/1024.0/1024.0/1024.0/bestTime, totalTime/NTIMES,
+	       bestTime, worstTime, bestLocalSize, flops*NTIMES*arraySize/1.0e9/bestTime);
 }
 
 
 
-void VerifyResults(cl_command_queue *queue, cl_mem *device_A, double scalar)
+void VerifyResults(cl_command_queue *queue, cl_mem *device_A, double scalar, size_t arraySize)
 {
 	// Triad puts final values in array A, so retrieve it from the card. Allocate memory to recieve:
-	size_t sizeBytes = ARRAYSIZE * sizeof(double);
+	size_t sizeBytes = arraySize * sizeof(double);
 	double *checkA;
 	checkA = malloc(sizeBytes);
 	clEnqueueReadBuffer(*queue, *device_A, CL_TRUE, 0, sizeBytes, checkA, 0, NULL, NULL);
@@ -284,7 +298,7 @@ void VerifyResults(cl_command_queue *queue, cl_mem *device_A, double scalar)
 	a = b*scalar + c;
 
 	int errors = 0;
-	for (int i = 0; i < ARRAYSIZE; i++) {
+	for (int i = 0; i < arraySize; i++) {
 		if (checkA[i] != a) {
 			errors++;
 		}
@@ -308,7 +322,7 @@ double GetWallTime(void)
 
 
 // OpenCL functions
-int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id, cl_context *context, cl_command_queue *queue, cl_program *program)
+int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id, cl_context *context, cl_command_queue *queue, cl_program *program, cl_ulong *maxAlloc, cl_ulong *globalMemSize)
 {
 	//error flag
 	cl_int err;
@@ -387,6 +401,11 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 		}
 	}
 	printf("\n");
+
+	//store global mem size and max allocation size
+	clGetDeviceInfo((*device_id)[chosenPlatform][chosenDevice], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(*globalMemSize), globalMemSize, NULL);
+	clGetDeviceInfo((*device_id)[chosenPlatform][chosenDevice], CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(*maxAlloc), maxAlloc, NULL);
+
 	//create a context
 	*context = clCreateContext(NULL, 1, &((*device_id)[chosenPlatform][chosenDevice]), NULL, NULL, &err);
 	CheckOpenCLError(err, __LINE__);
