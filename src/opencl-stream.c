@@ -179,33 +179,33 @@ int main(void)
 
 	// Fourth argument is the number of memory operations per output array item. Used in bandwidth calculation.
 	// Fifth argument is the number of flops per output array item. Used in flops calculation.
-	printf("--------------------------------------------------------------------------------------------------\n");
-	printf("Function        Best Rate GB/s   Avg time   Min time   Max time   Best Workgroup Size   Best GLOPS\n");
-	printf("--------------------------------------------------------------------------------------------------\n");
+	printf("---------------------------------------------------------------------------------------------------\n");
+	printf("Function        Best Rate GB/s   Avg time   Min time   Max time   Best Workgroup Size   Best GFLOPS\n");
+	printf("---------------------------------------------------------------------------------------------------\n");
 	RunTest(&queue, &copyKernel1,  1,  "copyKernel1",  2, 0);
 	RunTest(&queue, &copyKernel2,  2,  "copyKernel2",  2, 0);
 	RunTest(&queue, &copyKernel4,  4,  "copyKernel4",  2, 0);
 	RunTest(&queue, &copyKernel8,  8,  "copyKernel8",  2, 0);
 	RunTest(&queue, &copyKernel16, 16, "copyKernel16", 2, 0);
-	printf("--------------------------------------------------------------------------------------------------\n");
+	printf("---------------------------------------------------------------------------------------------------\n");
 	RunTest(&queue, &scaleKernel1,  1,  "scaleKernel1",  2, 1);
 	RunTest(&queue, &scaleKernel2,  2,  "scaleKernel2",  2, 1);
 	RunTest(&queue, &scaleKernel4,  4,  "scaleKernel4",  2, 1);
 	RunTest(&queue, &scaleKernel8,  8,  "scaleKernel8",  2, 1);
 	RunTest(&queue, &scaleKernel16, 16, "scaleKernel16", 2, 1);
-	printf("--------------------------------------------------------------------------------------------------\n");
+	printf("---------------------------------------------------------------------------------------------------\n");
 	RunTest(&queue, &addKernel1,  1,  "addKernel1",  2, 1);
 	RunTest(&queue, &addKernel2,  2,  "addKernel2",  2, 1);
 	RunTest(&queue, &addKernel4,  4,  "addKernel4",  2, 1);
 	RunTest(&queue, &addKernel8,  8,  "addKernel8",  2, 1);
 	RunTest(&queue, &addKernel16, 16, "addKernel16", 2, 1);
-	printf("--------------------------------------------------------------------------------------------------\n");
+	printf("---------------------------------------------------------------------------------------------------\n");
 	RunTest(&queue, &triadKernel1,  1,  "triadKernel1",  3, 2);
 	RunTest(&queue, &triadKernel2,  2,  "triadKernel2",  3, 2);
 	RunTest(&queue, &triadKernel4,  4,  "triadKernel4",  3, 2);
 	RunTest(&queue, &triadKernel8,  8,  "triadKernel8",  3, 2);
 	RunTest(&queue, &triadKernel16, 16, "triadKernel16", 3, 2);
-	printf("--------------------------------------------------------------------------------------------------\n");
+	printf("---------------------------------------------------------------------------------------------------\n");
 
 	// Check results are correct
 	VerifyResults(&queue, &device_A, scalar);
@@ -257,7 +257,7 @@ void RunTest(cl_command_queue * queue, cl_kernel * kernel, size_t vecWidth, char
 
 	}
 
-	printf("%13s   %14.3lf   %8.6lf   %8.6lf   %8.6lf   %19zu   %10.3lf\n",
+	printf("%13s   %14.3lf   %8.6lf   %8.6lf   %8.6lf   %19zu   %11.3lf\n",
 	       testName, memops*NTIMES*ARRAYSIZE*sizeof(double)/1024.0/1024.0/1024.0/bestTime, totalTime/NTIMES,
 	       bestTime, worstTime, bestLocalSize, flops*NTIMES*ARRAYSIZE/1.0e9/bestTime);
 }
