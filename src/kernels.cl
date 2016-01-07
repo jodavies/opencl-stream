@@ -1,5 +1,5 @@
 // enable extension for OpenCL 1.1 and lower
-#if __OPENCL_VERSION__ < CL_VERSION_1_2
+#if __OPENCL_VERSION__ < 120
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #endif
 
