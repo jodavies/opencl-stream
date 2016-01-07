@@ -189,5 +189,5 @@ __kernel void triadKernel16(const double scalar,
 {
 	size_t tid = get_global_id(0);
 
-	A[tid] = B[tid]*scalar*2.0 + C[tid];
+	A[tid] = B[tid]*scalar + C[tid];
 }
