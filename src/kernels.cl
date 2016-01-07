@@ -1,3 +1,8 @@
+// enable extension for OpenCL 1.1 and lower
+#if __OPENCL_VERSION__ < CL_VERSION_1_2
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#endif
+
 // Initialize arrays
 __kernel void initialiseArraysKernel(__global double * restrict A,
                                      __global double * restrict B,
