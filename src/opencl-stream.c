@@ -361,6 +361,7 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 		CheckOpenCLError(err, __LINE__);
 		for (int j = 0; j < numDevices[i]; j++) {
 			char deviceName[200];
+			cl_device_fp_config doublePrecisionSupport = 0;
 			clGetDeviceInfo((*device_id)[i][j], CL_DEVICE_NAME, sizeof(deviceName), deviceName, NULL);
 			printf("---OpenCL:    Device found %d. %s\n", j, deviceName);
 //			cl_ulong maxAlloc;
@@ -369,6 +370,10 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 //			cl_uint cacheLineSize;
 //			clGetDeviceInfo((*device_id)[i][j], CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, sizeof(cacheLineSize), &cacheLineSize, NULL);
 //			printf("---OpenCL:       CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE: %u B\n", cacheLineSize);
+			clGetDeviceInfo((*device_id)[i][j], CL_DEVICE_DOUBLE_FP_CONFIG,
+					sizeof(doublePrecisionSupport), &doublePrecisionSupport, NULL);
+			if ( doublePrecisionSupport == 0 )
+				printf("---OpenCL:        Device %d does not support double precision!\n", j);
 		}
 	}
 
