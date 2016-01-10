@@ -33,8 +33,7 @@ int InitialiseCLEnvironment(cl_platform_id**, cl_device_id***, cl_context*, cl_c
 void CleanUpCLEnvironment(cl_platform_id**, cl_device_id***, cl_context*, cl_command_queue*, cl_program*);
 void CheckOpenCLError(cl_int err, int line);
 
-char *kernelFileName = "src/kernels.cl";
-
+const char * const kernelFileName = "src/kernels.cl";
 
 
 int main(void)
@@ -298,7 +297,7 @@ void VerifyResults(cl_command_queue *queue, cl_mem *device_A, double scalar, siz
 	a = b*scalar + c;
 
 	int errors = 0;
-	for (int i = 0; i < arraySize; i++) {
+	for (size_t i = 0; i < arraySize; i++) {
 		if (checkA[i] != a) {
 			errors++;
 		}
@@ -348,7 +347,7 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 	cl_uint *numDevices;
 	numDevices = calloc(numPlatforms, sizeof(cl_uint));
 
-	for (int i = 0; i < numPlatforms; i++) {
+	for (cl_uint i = 0; i < numPlatforms; i++) {
 		clGetPlatformInfo((*platform)[i], CL_PLATFORM_VENDOR, sizeof(infostring), infostring, NULL);
 		printf("\n---OpenCL: Platform Vendor %d: %s\n", i, infostring);
 
@@ -359,8 +358,9 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 		(*device_id)[i] = malloc(numDevices[i] * sizeof(cl_device_id));
 		err = clGetDeviceIDs((*platform)[i], CL_DEVICE_TYPE_ALL, numDevices[i], (*device_id)[i], NULL);
 		CheckOpenCLError(err, __LINE__);
-		for (int j = 0; j < numDevices[i]; j++) {
+		for (cl_uint j = 0; j < numDevices[i]; j++) {
 			char deviceName[200];
+			cl_device_fp_config doublePrecisionSupport = 0;
 			clGetDeviceInfo((*device_id)[i][j], CL_DEVICE_NAME, sizeof(deviceName), deviceName, NULL);
 			printf("---OpenCL:    Device found %d. %s\n", j, deviceName);
 //			cl_ulong maxAlloc;
@@ -369,17 +369,21 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 //			cl_uint cacheLineSize;
 //			clGetDeviceInfo((*device_id)[i][j], CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE, sizeof(cacheLineSize), &cacheLineSize, NULL);
 //			printf("---OpenCL:       CL_DEVICE_GLOBAL_MEM_CACHELINE_SIZE: %u B\n", cacheLineSize);
+			clGetDeviceInfo((*device_id)[i][j], CL_DEVICE_DOUBLE_FP_CONFIG,
+					sizeof(doublePrecisionSupport), &doublePrecisionSupport, NULL);
+			if ( doublePrecisionSupport == 0 )
+				printf("---OpenCL:        Device %d does not support double precision!\n", j);
 		}
 	}
 
 	// Get platform and device from user:
-	int chosenPlatform = -1, chosenDevice = -1;
+	cl_long chosenPlatform = -1, chosenDevice = -1;
 	if (numPlatforms == 1) {
 		chosenPlatform = 0;
-		printf("Auto-selecting platform %u.\n", chosenPlatform);
+		printf("Auto-selecting platform %lu.\n", chosenPlatform);
 	} else while (chosenPlatform < 0) {
 		printf("\nChoose a platform: ");
-		scanf("%d", &chosenPlatform);
+		scanf("%ld", &chosenPlatform);
 		if (chosenPlatform > (numPlatforms-1) || chosenPlatform < 0) {
 			chosenPlatform = -1;
 			printf("Invalid platform.\n");
@@ -391,10 +395,10 @@ int InitialiseCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id
 	}
 	if (numDevices[chosenPlatform] == 1) {
 		chosenDevice = 0;
-		printf("Auto-selecting device %u.\n", chosenDevice);
+		printf("Auto-selecting device %lu.\n", chosenDevice);
 	} else while (chosenDevice < 0) {
 		printf("Choose a device: ");
-		scanf("%d", &chosenDevice);
+		scanf("%ld", &chosenDevice);
 		if (chosenDevice > (numDevices[chosenPlatform]-1) || chosenDevice < 0) {
 			chosenDevice = -1;
 			printf("Invalid device.\n");
@@ -458,7 +462,7 @@ void CleanUpCLEnvironment(cl_platform_id **platform, cl_device_id ***device_id, 
 
 	cl_uint numPlatforms;
 	clGetPlatformIDs(0, NULL, &numPlatforms);
-	for (int i = 0; i < numPlatforms; i++) {
+	for (cl_uint i = 0; i < numPlatforms; i++) {
 		free((*device_id)[i]);
 	}
 	free(*platform);
